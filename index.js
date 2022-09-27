@@ -68,28 +68,20 @@ const getProjectItems = async (id) => {
                   }
                   content{
                     ...on Issue {
-                      __typename
                       title
-                      repository {
-                        name
-                        owner {
-                          login
-                        }
-                      }
                       state
                       number
+                      repository {
+                        name
+                      }
                     }
                     ...on PullRequest {
-                      __typename
                       title
-                      repository {
-                        name
-                        owner {
-                          login
-                        }
-                      }
                       state
                       number
+                      repository {
+                        name
+                      }
                     }
                   }
                 }
@@ -135,14 +127,13 @@ const filterItems = (items) => {
       return
     }
     // parse content
-    const { __typename, title, repository: { owner: { login } = {}, name: repo } = {}, number } = content
-    if (!repo) { // likely a draft issue
+    const { title, repository: { name: track } = {}, number } = content
+    if (!track) { // likely a draft issue
       return
     }
     data.push({
       number,
-      type: __typename === 'PullRequest' ? 'PR' : __typename,
-      repo: `${login}/${repo}`,
+      track,
       title,
     })
   })
@@ -150,6 +141,9 @@ const filterItems = (items) => {
 }
 
 const toCSV = (data) => {
+  if (!data.length) {
+    return ''
+  }
   const headers = Object.keys(data[0])
   let csv = headers.map((h) => `"${h}"`).join(',') + '\n'
   data.forEach((r) => {
