@@ -1,4 +1,5 @@
 const { Octokit } = require('@octokit/core')
+const { WebClient } = require('@slack/web-api')
 const dayjs = require('dayjs')
 const utc = require('dayjs/plugin/utc')
 const isBetween = require('dayjs/plugin/isBetween')
@@ -152,9 +153,21 @@ const toCSV = (data) => {
   return csv.trim()
 }
 
+const slackCSV = ({ content, title, channels = process.env.SLACK_CHANNEL }) => {
+  const client = new WebClient(process.env.SLACK_TOKEN)
+  return client.files.upload({
+    channels,
+    title,
+    filename: `${title}.csv`,
+    content,
+    filetype: 'csv',
+  })
+}
+
 ;(async () => {
   const id = (await getProjectID())?.organization?.projectV2?.id
   const items = await(getProjectItems(id))
   const data = filterItems(items)
-  console.log(toCSV(data))
+  const content = toCSV(data)
+  await slackCSV({ content, title: `auto-insights-${new Date().toISOString().split('T')[0]}` })
 })()
