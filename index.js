@@ -6,7 +6,7 @@ const isBetween = require('dayjs/plugin/isBetween')
 dayjs.extend(utc)
 dayjs.extend(isBetween)
 
-const { GITHUB_TOKEN, GITHUB_ORG = 'EQWorks' } = process.env
+const { GITHUB_TOKEN, GITHUB_ORG = 'EQWorks', SLACK_CHANNEL, SLACK_TOKEN } = process.env
 const octokit = new Octokit({ auth: GITHUB_TOKEN })
 
 const getProjectID = ({ login = GITHUB_ORG, number = 16 } = {}) => octokit.graphql(
@@ -151,8 +151,8 @@ const toCSV = (data) => {
   return csv.trim()
 }
 
-const slackCSV = ({ content, title, channels = process.env.SLACK_CHANNEL }) => {
-  const client = new WebClient(process.env.SLACK_TOKEN)
+const slackCSV = ({ content, title, channels = SLACK_CHANNEL }) => {
+  const client = new WebClient(SLACK_TOKEN)
   return client.files.upload({
     channels,
     title,
