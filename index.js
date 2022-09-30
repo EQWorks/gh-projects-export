@@ -1,11 +1,12 @@
 const { Octokit } = require('@octokit/core')
+const { WebClient } = require('@slack/web-api')
 const dayjs = require('dayjs')
 const utc = require('dayjs/plugin/utc')
 const isBetween = require('dayjs/plugin/isBetween')
 dayjs.extend(utc)
 dayjs.extend(isBetween)
 
-const { GITHUB_TOKEN, GITHUB_ORG = 'EQWorks' } = process.env
+const { GITHUB_TOKEN, GITHUB_ORG = 'EQWorks', SLACK_CHANNEL, SLACK_TOKEN } = process.env
 const octokit = new Octokit({ auth: GITHUB_TOKEN })
 
 const getProjectID = ({ login = GITHUB_ORG, number = 16 } = {}) => octokit.graphql(
@@ -49,7 +50,6 @@ const getProjectItems = async (id) => {
                       ... on ProjectV2ItemFieldIterationValue {
                         title
                         startDate
-                        duration
                         field {
                           ... on ProjectV2IterationField {
                             name
@@ -68,28 +68,20 @@ const getProjectItems = async (id) => {
                   }
                   content{
                     ...on Issue {
-                      __typename
                       title
-                      repository {
-                        name
-                        owner {
-                          login
-                        }
-                      }
                       state
                       number
+                      repository {
+                        name
+                      }
                     }
                     ...on PullRequest {
-                      __typename
                       title
-                      repository {
-                        name
-                        owner {
-                          login
-                        }
-                      }
                       state
                       number
+                      repository {
+                        name
+                      }
                     }
                   }
                 }
@@ -128,21 +120,19 @@ const filterItems = (items) => {
     if (!meta.Iteration) {
       return
     }
-    // skip the ones that aren't a part of the current iteration
+    // skip the ones that are after the current iteration
     const start = dayjs.utc(meta.Iteration.startDate)
-    const end = start.add(meta.Iteration.duration, 'days')
-    if (!dayjs.utc().isBetween(start, end)) {
+    if (dayjs.utc().isBefore(start)) {
       return
     }
     // parse content
-    const { __typename, title, repository: { owner: { login } = {}, name: repo } = {}, number } = content
-    if (!repo) { // likely a draft issue
+    const { title, repository: { name: track } = {}, number } = content
+    if (!track) { // likely a draft issue
       return
     }
     data.push({
       number,
-      type: __typename === 'PullRequest' ? 'PR' : __typename,
-      repo: `${login}/${repo}`,
+      track,
       title,
     })
   })
@@ -150,6 +140,9 @@ const filterItems = (items) => {
 }
 
 const toCSV = (data) => {
+  if (!data.length) {
+    return ''
+  }
   const headers = Object.keys(data[0])
   let csv = headers.map((h) => `"${h}"`).join(',') + '\n'
   data.forEach((r) => {
@@ -158,9 +151,21 @@ const toCSV = (data) => {
   return csv.trim()
 }
 
+const slackCSV = ({ content, title, channels = SLACK_CHANNEL }) => {
+  const client = new WebClient(SLACK_TOKEN)
+  return client.files.upload({
+    channels,
+    title,
+    filename: `${title}.csv`,
+    content,
+    filetype: 'csv',
+  })
+}
+
 ;(async () => {
   const id = (await getProjectID())?.organization?.projectV2?.id
   const items = await(getProjectItems(id))
   const data = filterItems(items)
-  console.log(toCSV(data))
+  const content = toCSV(data)
+  await slackCSV({ content, title: `auto-insights-${new Date().toISOString().split('T')[0]}` })
 })()
