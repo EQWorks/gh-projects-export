@@ -1,0 +1,35 @@
+name: Daily Auto Insights
+
+on:
+  schedule:
+    # At UTC 13:00 every week day
+    - cron: '0 13 * * *'
+
+jobs:
+  auto-insights-project:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set Node.js version
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Post active items from the Auto Insights project
+        run: node index.js
+        env:
+          GITHUB_TOKEN: ${{ secrets.CD_GITHUB_TOKEN }}
+          SLACK_TOKEN: ${{ secrets.CD_SLACK_TOKEN }}
+          SLACK_CHANNEL: C04557DM64Q # channel #auto-project-updates
+
+      - name: Live long and prosper
+        uses: gautamkrishnar/keepalive-workflow@v1
+        with:
+          commit_message: "devops - auto keepalive before 60 days of inactivity"
+          committer_email: "runzhou.li@gmail.com"
