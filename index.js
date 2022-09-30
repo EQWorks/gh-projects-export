@@ -50,7 +50,6 @@ const getProjectItems = async (id) => {
                       ... on ProjectV2ItemFieldIterationValue {
                         title
                         startDate
-                        duration
                         field {
                           ... on ProjectV2IterationField {
                             name
@@ -121,10 +120,9 @@ const filterItems = (items) => {
     if (!meta.Iteration) {
       return
     }
-    // skip the ones that aren't a part of the current iteration
+    // skip the ones that are after the current iteration
     const start = dayjs.utc(meta.Iteration.startDate)
-    const end = start.add(meta.Iteration.duration, 'days')
-    if (!dayjs.utc().isBetween(start, end)) {
+    if (dayjs.utc().isBefore(start)) {
       return
     }
     // parse content
