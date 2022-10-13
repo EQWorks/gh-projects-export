@@ -64,6 +64,13 @@ const getProjectItems = async (id) => {
                           }
                         }
                       }
+                      ... on ProjectV2ItemFieldPullRequestValue {
+                        pullRequests(first: 10) {
+                          nodes {
+                            id
+                          }
+                        }
+                      }
                     }
                   }
                   content{
@@ -76,6 +83,7 @@ const getProjectItems = async (id) => {
                       }
                     }
                     ...on PullRequest {
+                      id
                       title
                       state
                       number
@@ -104,10 +112,15 @@ const getProjectItems = async (id) => {
 
 const filterItems = (items) => {
   const data = []
+  // build list of issue-linked PRs
+  const linkedPRs = items.reduce((acc, { fieldValues }) => {
+    const prs = fieldValues.nodes.find((n) => n.pullRequests)?.pullRequests.nodes.map(({ id }) => id) || []
+    return Array.from(new Set([...acc, ...prs]))
+  }, [])
   items.forEach(({ fieldValues, content }) => {
     // get the custom fields
     const meta = fieldValues.nodes
-      .filter((n) => Object.keys(n).length > 0)
+      .filter((n) => Object.keys(n).length > 0 && !n.pullRequests)
       .reduce((acc, { name: value, field: { name }, ...rest }) => {
         acc[name] = { value, ...rest }
         return acc
@@ -126,13 +139,18 @@ const filterItems = (items) => {
       return
     }
     // parse content
-    const { title, repository: { name: track } = {}, number } = content
-    if (!track) { // likely a draft issue
+    const { title, repository: { name: track } = {}, number, id } = content
+    // skip draft issues (without a repository)
+    if (!track) {
+      return
+    }
+    // skip the PRs that have an associated issue
+    if (id && linkedPRs.includes(id)) {
       return
     }
     data.push({
-      number,
       track,
+      number,
       title,
     })
   })
