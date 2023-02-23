@@ -126,11 +126,11 @@ const filterItems = (items) => {
         return acc
       }, {})
     // skip the done ones
-    if (meta.Status.value.toLowerCase().endsWith('done')) {
+    if (meta?.Status?.value.toLowerCase().endsWith('done')) {
       return
     }
     // skip the ones without an iteration
-    if (!meta.Iteration) {
+    if (!meta?.Iteration) {
       return
     }
     // skip the ones that are after the current iteration
